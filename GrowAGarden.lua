@@ -152,16 +152,7 @@ local itemRanks = {
     ["Crab"] = 0.1,
     ["Parasaurolophus"] = 0.1,
     
-    -- Fruit values (hypothetical, replace with real values)
-    ["Shiny Dragonfruit"] = 100,
-    ["Golden Apple"] = 99,
-    ["Cosmic Grape"] = 90,
-    ["Galactic Banana"] = 85,
-    ["Diamond Berry"] = 75,
-    ["Ruby Orange"] = 60,
-    ["Emerald Pear"] = 45,
-    ["Silver Strawberry"] = 30,
-    ["Bronze Lemon"] = 15
+   
 }
 
 -- IMPORTANT: Replace this with your actual Discord Webhook URL.
